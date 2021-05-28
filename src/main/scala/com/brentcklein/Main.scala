@@ -69,14 +69,30 @@ object Main {
             val cardTags = raw".*\[\[(.+)\]\].*".r
             // if so, grab the text inside
             text match {
-              case cardTags(cardName) => {
+              case cardTags(cardSearch) => {
                 // TODO: add support for multiple card tags
                 // val matches = cardTags.findAllMatchIn(text)
                 // call scryfall api and get image link using name
+                var query: Map[String, String] = Map()
+                val setTag = raw".*\[(.+)\]".r
+                cardSearch match {
+                  case setTag(setName) => {
+                    query += ("set" -> setName)
+                    val cardTag = raw"(.*)\[.+\]".r
+                    cardSearch match {
+                      case cardTag(cardName) => {
+                        query += ("fuzzy" -> cardName)
+                      }
+                    }
+                  }
+                  case _ => {
+                    query += ("fuzzy" -> cardSearch)
+                  }
+                }
                 val f: Future[HttpResponse] = 
                 Http().singleRequest(
                   HttpRequest(
-                    uri = Uri("https://api.scryfall.com/cards/named").withQuery(Uri.Query(("fuzzy" -> cardName))),
+                    uri = Uri("https://api.scryfall.com/cards/named").withQuery(Uri.Query(query)),
                   )
                 ).flatMap{ response =>
                   response.status match {
