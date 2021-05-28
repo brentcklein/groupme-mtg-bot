@@ -1,0 +1,4 @@
+[debug] [groupme-mtg-bot-build] Classpath dependencies List()
+[debug] [groupme-mtg-bot-build] Dependencies from configurations List()
+[debug] Bloop wrote the configuration of project 'groupme-mtg-bot-build' to '/home/brent/dev/groupme-mtg-bot/project/.bloop/groupme-mtg-bot-build.json'
+[success] Generated .bloop/groupme-mtg-bot-build.json
