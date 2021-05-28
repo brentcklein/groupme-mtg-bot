@@ -3,6 +3,9 @@
 .bsp
 .metals
 
+# vscode
+.vscode/tasks.json
+
 # scala 3
 .tasty
 
