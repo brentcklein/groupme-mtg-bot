@@ -38,7 +38,7 @@ object Main {
 
     import JsonSupport._
 
-    val botId = sys.env.get("BOT_ID") filter { _.length != 0} getOrElse("")
+    val botId = sys.env.get("BOT_ID") filter { _.length != 0} getOrElse("c05d3805b3d555a1837209bab8")
     
     val responseMessage = MessageOut(message, botId)
     Marshal(responseMessage).to[RequestEntity].flatMap { entity =>
