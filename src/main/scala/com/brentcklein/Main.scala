@@ -68,6 +68,8 @@ object Main {
             // if so, grab the text inside
             text match {
               case cardTags(cardName) => {
+                // TODO: add support for multiple card tags
+                // val matches = cardTags.findAllMatchIn(text)
                 // call scryfall api and get image link using name
                 val f: Future[HttpResponse] = 
                 Http().singleRequest(
@@ -90,6 +92,7 @@ object Main {
                     }
                     case StatusCodes.OK => {
                       Unmarshal(response).to[ScryfallSuccessResponse].flatMap(marshalledResponse => {
+                        // TODO: add multiple links to message, including full scryfall listing and gatherer
                         val responseMessage = marshalledResponse.image_uris.normal
                         postMessage(responseMessage)
                       })
@@ -114,9 +117,10 @@ object Main {
         }
       }
 
-    val bindingFuture = Http().newServerAt("localhost", 8080).bind(route)
+    val port: Int = sys.env.getOrElse("PORT", "8080").toInt
+    val bindingFuture = Http().newServerAt("0.0.0.0", port).bind(route)
 
-    println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
+    println(s"Server online at http://0.0.0.0:$port/\nPress RETURN to stop...")
     StdIn.readLine() // let it run until user presses return
     bindingFuture
       .flatMap(_.unbind()) // trigger unbinding from the port

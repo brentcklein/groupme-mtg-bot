@@ -1,6 +1,8 @@
 lazy val akkaHttpVersion = "10.2.4"
 lazy val akkaVersion    = "2.6.14"
 
+enablePlugins(JavaAppPackaging)
+
 lazy val root = (project in file(".")).
   settings(
     inThisBuild(List(
