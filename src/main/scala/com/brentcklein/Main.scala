@@ -44,14 +44,13 @@ object Main {
             // check to see whether there are double square brackets
             // if so, grab the text inside
             // call scryfall api and get image link using name
-            val scryfallQuery = ???
-            val f: Future[HttpResponse] = Marshal(scryfallQuery).to[RequestEntity].flatMap { entity =>
-              Http().singleRequest(
-                HttpRequest(
-                  uri = Uri("https://api.scryfall.com/cards/named").withQuery(Uri.Query(("fuzzy" -> text))),
-                )
+            val f: Future[HttpResponse] = 
+            Http().singleRequest(
+              HttpRequest(
+                uri = Uri("https://api.scryfall.com/cards/named").withQuery(Uri.Query(("fuzzy" -> text))),
               )
-            }.flatMap{ response =>
+            )
+            .flatMap{ response =>
               Unmarshal(response).to[ScryfallResponse]
             }.flatMap{scryfallResponse =>
               // post link text to thread with card name
