@@ -64,7 +64,7 @@ object Main {
           entity(as[MessageIn]) { message => // will unmarshal JSON to Message
             val text = message.text
             // check to see whether there are double square brackets
-            val cardTags = raw"\[\[(.+)\]\]".r
+            val cardTags = raw".*\[\[(.+)\]\].*".r
             // if so, grab the text inside
             text match {
               case cardTags(cardName) => {
