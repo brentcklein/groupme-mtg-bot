@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "tasks": [{
+      "label": "Run local server",
+      "command": "./target/universal/stage/bin/groupme-mtg-bot",
+      "type": "shell",
+      "options": {
+        "env": {
+          "BOT_ID": "c05d3805b3d555a1837209bab8" 
+        }
+      }
+  }]
+}

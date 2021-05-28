@@ -3,9 +3,6 @@
 .bsp
 .metals
 
-# vs code
-.vscode
-
 # scala 3
 .tasty
 
