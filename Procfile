@@ -1,1 +1,1 @@
-web: target/universal/stage/bin/groupme-mtg-bot
+web: target/universal/stage/bin/groupme-mtg-bot -Dhttp.port=${PORT}
