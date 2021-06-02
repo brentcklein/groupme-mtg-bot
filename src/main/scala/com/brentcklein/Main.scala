@@ -81,7 +81,7 @@ object Main {
                     val cardTag = raw"(.*)\[.+\]".r
                     cardSearch match {
                       case cardTag(cardName) => {
-                        query += ("fuzzy" -> cardName)
+                        query += ("fuzzy" -> cardName.trim())
                       }
                     }
                   }
