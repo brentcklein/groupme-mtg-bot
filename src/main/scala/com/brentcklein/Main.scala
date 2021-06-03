@@ -17,7 +17,7 @@ case class MessageIn(text: String)
 case class MessageOut(text: String, bot_id: String)
 
 case class ScryfallResponseImageUris(normal: String)
-case class ScryfallSuccessResponse(image_uris: ScryfallResponseImageUris)
+case class ScryfallSuccessResponse(scryfall_uri: String, multiverse_ids: List[Int], image_uris: ScryfallResponseImageUris)
 case class ScryfallNotFoundResponse()
 case class ScryfallFailureResponse()
 
@@ -26,10 +26,22 @@ object JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
   implicit val messageOutFormat = jsonFormat2(MessageOut)
 
   implicit val scryfallResponseImageUrisFormat = jsonFormat1(ScryfallResponseImageUris)
-  implicit val scryfallResponseFormat = jsonFormat1(ScryfallSuccessResponse)
+  implicit val scryfallResponseFormat = jsonFormat3(ScryfallSuccessResponse)
 }
 
 object Main {
+
+  def postMessages(messages: List[String]): Future[HttpResponse] = {
+    implicit val system = ActorSystem(Behaviors.empty, "my-system")
+    // needed for the future flatMap/onComplete in the end
+    implicit val executionContext = system.executionContext
+
+    import JsonSupport._
+    
+    messages.map(message => {
+      postMessage(message)
+    }).last
+  }
 
   def postMessage(message: String): Future[HttpResponse] = {
     implicit val system = ActorSystem(Behaviors.empty, "my-system")
@@ -111,8 +123,7 @@ object Main {
                     case StatusCodes.OK => {
                       Unmarshal(response).to[ScryfallSuccessResponse].flatMap(marshalledResponse => {
                         // TODO: add multiple links to message, including full scryfall listing and gatherer
-                        val responseMessage = marshalledResponse.image_uris.normal
-                        postMessage(responseMessage)
+                        postMessage(marshalledResponse.image_uris.normal)
                       })
                     }
                     case _ => {
