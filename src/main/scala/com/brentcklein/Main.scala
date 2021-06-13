@@ -12,6 +12,7 @@ import akka.http.scaladsl.marshalling.Marshal
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.http.scaladsl.Http
 import scala.util.Random
+import scala.concurrent.ExecutionContext
 
 case class MessageIn(text: String)
 case class MessageOut(text: String, bot_id: String)
@@ -30,26 +31,13 @@ object JsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
 }
 
 object Main {
+  import JsonSupport._
 
-  def postMessages(messages: List[String]): Future[HttpResponse] = {
-    implicit val system = ActorSystem(Behaviors.empty, "my-system")
-    // needed for the future flatMap/onComplete in the end
-    implicit val executionContext = system.executionContext
-
-    import JsonSupport._
-    
-    messages.map(message => {
-      postMessage(message)
-    }).last
+  def postMessages(messages: List[String])(implicit actorSystem: ActorSystem[_], executionContext: ExecutionContext): Future[List[HttpResponse]] = {
+    Future.sequence(messages.map(postMessage))
   }
 
-  def postMessage(message: String): Future[HttpResponse] = {
-    implicit val system = ActorSystem(Behaviors.empty, "my-system")
-    // needed for the future flatMap/onComplete in the end
-    implicit val executionContext = system.executionContext
-
-    import JsonSupport._
-
+  def postMessage(message: String)(implicit actorSystem: ActorSystem[_], executionContext: ExecutionContext): Future[HttpResponse] = {
     val botId = sys.env.get("BOT_ID") filter { _.length != 0} getOrElse("")
     
     val responseMessage = MessageOut(message, botId)
@@ -61,6 +49,26 @@ object Main {
           entity = entity
         )
       )
+    }
+  }
+
+  def getCardSearchString(message: String): Option[(String, String)] = {
+    PartialFunction.condOpt(message) {
+      case s"${_}[[$searchString]]${remainingText}" => (searchString, remainingText)
+    }
+  }
+
+  def getAllCardSearchStrings(message: String): Seq[String] = {
+    getCardSearchString(message) match {
+      case None => Seq()
+      case Some((searchString, remainingText)) => Seq(searchString) ++ getAllCardSearchStrings(remainingText)
+    }
+  }
+
+  def getCardNameAndOptionalSet(searchString: String): (String, Option[String]) = {
+    searchString match {
+      case s"${cardName}/${setName}" => (cardName, Some(setName))
+      case cardName => (cardName, None)
     }
   }
 
@@ -76,70 +84,47 @@ object Main {
       pathEndOrSingleSlash {
         post {
           entity(as[MessageIn]) { message => // will unmarshal JSON to Message
-            val text = message.text
-            // check to see whether there are double square brackets
-            val cardTags = raw".*\[\[(.+)\]\].*".r
-            // if so, grab the text inside
-            text match {
-              case cardTags(cardSearch) => {
-                // TODO: add support for multiple card tags
-                // val matches = cardTags.findAllMatchIn(text)
-                // call scryfall api and get image link using name
-                var query: Map[String, String] = Map()
-                val setTag = raw".*\[(.+)\]".r
-                cardSearch match {
-                  case setTag(setName) => {
-                    query += ("set" -> setName)
-                    val cardTag = raw"(.*)\[.+\]".r
-                    cardSearch match {
-                      case cardTag(cardName) => {
-                        query += ("fuzzy" -> cardName.trim())
-                      }
-                    }
+            for (searchString <- getAllCardSearchStrings(message.text)) {
+              // TODO: add support for multiple card tags
+              // val matches = cardTags.findAllMatchIn(text)
+              // call scryfall api and get image link using name
+              val (cardName, setName) = getCardNameAndOptionalSet(searchString)
+              val query = Map("fuzzy" -> cardName) ++ setName.map(("set" -> _))
+
+              val f: Future[HttpResponse] = 
+              Http().singleRequest(
+                HttpRequest(
+                  uri = Uri("https://api.scryfall.com/cards/named").withQuery(Uri.Query(query)),
+                )
+              ).flatMap{ response =>
+                response.status match {
+                  case StatusCodes.NotFound => {
+                    // send snarky message
+                    val snarks = List(
+                      "That's not a card, dumb dumb.",
+                      "You wanna check your spelling on that one?",
+                      "https://i.pinimg.com/474x/ee/ac/46/eeac460d3ed617cbcca56cc69903134e.jpg",
+                      "I'm pretty sure you made that one up.",
+                      "I'm a bot, not a magician. Check your spelling."
+                    )
+                    val responseMessage = snarks(Random.nextInt(snarks.length))
+                    postMessage(responseMessage)
+                  }
+                  case StatusCodes.OK => {
+                    Unmarshal(response).to[ScryfallSuccessResponse].flatMap(marshalledResponse => {
+                      // TODO: add multiple links to message, including full scryfall listing and gatherer
+                      postMessage(marshalledResponse.image_uris.normal)
+                    })
                   }
                   case _ => {
-                    query += ("fuzzy" -> cardSearch)
+                    // something went wrong
+                    Future{HttpResponse(StatusCodes.InternalServerError)}
                   }
                 }
-                val f: Future[HttpResponse] = 
-                Http().singleRequest(
-                  HttpRequest(
-                    uri = Uri("https://api.scryfall.com/cards/named").withQuery(Uri.Query(query)),
-                  )
-                ).flatMap{ response =>
-                  response.status match {
-                    case StatusCodes.NotFound => {
-                      // send snarky message
-                      val snarks = List(
-                        "That's not a card, dumb dumb.",
-                        "You wanna check your spelling on that one?",
-                        "https://i.pinimg.com/474x/ee/ac/46/eeac460d3ed617cbcca56cc69903134e.jpg",
-                        "I'm pretty sure you made that one up.",
-                        "I'm a bot, not a magician. Check your spelling."
-                      )
-                      val responseMessage = snarks(Random.nextInt(snarks.length))
-                      postMessage(responseMessage)
-                    }
-                    case StatusCodes.OK => {
-                      Unmarshal(response).to[ScryfallSuccessResponse].flatMap(marshalledResponse => {
-                        // TODO: add multiple links to message, including full scryfall listing and gatherer
-                        postMessage(marshalledResponse.image_uris.normal)
-                      })
-                    }
-                    case _ => {
-                      // something went wrong
-                      Future{HttpResponse(StatusCodes.InternalServerError)}
-                    }
-                  }
-                }
-                // return whatever response we got from posting message
-                complete(f)
-              }
-              case _ => {
-                // message did not contain card tags
-                complete("No tags detected")
               }
             }
+            // return whatever response we got from posting message
+            complete(StatusCodes.NoContent)
           }
         } ~ get {
           complete("Welcome to MtgBot")
