@@ -67,7 +67,7 @@ object Main {
 
   def getCardNameAndOptionalSet(searchString: String): (String, Option[String]) = {
     searchString match {
-      case s"${cardName}/${setName}" => (cardName, Some(setName))
+      case s"${cardName}/${setName}" => (cardName.trim(), Some(setName.trim()))
       case cardName => (cardName, None)
     }
   }
